@@ -50,6 +50,14 @@ public class SemaforoController {
 
     //Inicializa o tabuleiro
     public void initialize() {
+        initializeBoard();
+        atualizarContagemPecas();
+        AtualizarVez();
+    }
+
+    // Reinitialize the board
+    private void initializeBoard() {
+        board.getChildren().clear(); // Clear the board
         for (int i = 0; i < ROWS; i++) {
             for (int j = 0; j < COLS; j++) {
                 grelha[i][j] = Piece.VAZIO;
@@ -64,8 +72,6 @@ public class SemaforoController {
                 square.setOnMouseClicked(event -> atuarCliqueTabuleiro(row, col));
             }
         }
-        atualizarContagemPecas();
-        AtualizarVez();
     }
 
     //Reage as jogadas feitas no tabuleiro
@@ -89,7 +95,7 @@ public class SemaforoController {
                 if (pecasAmarela > 0) {
                     nextPiece = Piece.AMARELO;
                 } else {
-                    mostrarAlerta("Acabaram as peças amarelas!","Oops!");
+                    mostrarAlerta("Acabaram as peças amarelas!", "Oops!");
                     return;
                 }
                 break;
@@ -97,7 +103,7 @@ public class SemaforoController {
                 if (pecasVermelhas > 0) {
                     nextPiece = Piece.VERMELHO;
                 } else {
-                    mostrarAlerta("Acabaram as peças vermelhas!","Oops!");
+                    mostrarAlerta("Acabaram as peças vermelhas!", "Oops!");
                     return;
                 }
                 break;
@@ -152,7 +158,7 @@ public class SemaforoController {
             return;
         }
         if (piece.equals("VITORIA")) {
-            mostrarAlerta("Ganhaste!","Parabéns!");
+            mostrarAlerta("Ganhaste!", "Parabéns!");
             client.enviarJogada(-1, -1, "REINICIAR"); // Notify server to reset game
             reiniciarJogo();
             return;
@@ -179,7 +185,7 @@ public class SemaforoController {
         }
         atualizarContagemPecas();
         if (validarVitoria(row, col, p)) {
-            mostrarAlerta("Perdeu!","Boa sorte na proxima vez!");
+            mostrarAlerta("Perdeu!", "Boa sorte na proxima vez!");
             reiniciarJogo();
         }
     }
@@ -206,71 +212,82 @@ public class SemaforoController {
         newPiece.setOnMouseClicked(event -> atuarCliqueTabuleiro(row, col));
     }
 
-    //Avalia a peça clicada no tabuleiro
+    //Avalia a peça clicada e que esta no tabuleiro, retorna null se vazio
     private Shape getFormaNoTabuleiro(int row, int col) {
-        for (javafx.scene.Node node : board.getChildren()) {
-            if (GridPane.getRowIndex(node) == row && GridPane.getColumnIndex(node) == col) {
-                if (node instanceof Shape) {
-                    return (Shape) node;
-                }
+        for (var node : board.getChildren()) {
+            if (board.getRowIndex(node) == row && board.getColumnIndex(node) == col && node instanceof Shape) {
+                return (Shape) node;
             }
         }
         return null;
     }
 
-    //Atualiza a contagem de cada peça
+    //Mostra um alerta para o jogador
+    public void mostrarAlerta(String titulo, String mensagem) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(titulo);
+        alert.setHeaderText(null);
+        alert.setContentText(mensagem);
+        alert.showAndWait();
+    }
+
+    //Atualiza a contagem de peças
     private void atualizarContagemPecas() {
         pecasVerdeLabel.setText("Peças Verdes: " + pecasVerde);
         pecasAmarelaLabel.setText("Peças Amarelas: " + pecasAmarela);
         pecasVermelhasLabel.setText("Peças Vermelhas: " + pecasVermelhas);
     }
 
-    //Atualiza o turno após a jogada de cada jogador
+    //Indica a vez do jogador ou adversario
     private void AtualizarVez() {
-        indicadorVezLabel.setText(isVezJogador ? "Tua vez" : "Vez do adversário");
+        indicadorVezLabel.setText(isVezJogador ? "A sua vez" : "Vez do adversário");
     }
 
-    //Verifica se alguem ganhou
+    //Verifica o estado do tabuleiro para ver se há vitória
     private boolean validarVitoria(int row, int col, Piece piece) {
-        return validarDireccao(row, col, piece, 1, 0) || // Horizontal
-                validarDireccao(row, col, piece, 0, 1) || // Vertical
-                validarDireccao(row, col, piece, 1, 1) || // Diagonal \
-                validarDireccao(row, col, piece, 1, -1);  // Diagonal /
+        return checkRow(row, piece) || checkColumn(col, piece) || checkDiagonals(piece);
     }
 
-    //Valida as direçao para procurar vitorias (vericalmente, horizontalmente e nas diagonais)
-    private boolean validarDireccao(int row, int col, Piece piece, int rowDir, int colDir) {
-        int count = 0;
-        for (int i = -2; i <= 2; i++) {
-            int r = row + i * rowDir;
-            int c = col + i * colDir;
-            if (r >= 0 && r < ROWS && c >= 0 && c < COLS && grelha[r][c] == piece) {
-                count++;
-                if (count == 3) {
-                    return true;
-                }
-            } else {
-                count = 0;
+    private boolean checkRow(int row, Piece piece) {
+        for (int col = 0; col < COLS; col++) {
+            if (grelha[row][col] != piece) {
+                return false;
             }
         }
-        return false;
+        return true;
     }
 
-    //Mostra alertas
-    public void mostrarAlerta(String message, String title) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
+    private boolean checkColumn(int col, Piece piece) {
+        for (int row = 0; row < ROWS; row++) {
+            if (grelha[row][col] != piece) {
+                return false;
+            }
+        }
+        return true;
     }
 
-    //Reinicia o jogo no fim do mesmo.
+    private boolean checkDiagonals(Piece piece) {
+        boolean leftToRight = true, rightToLeft = true;
+        for (int i = 0; i < Math.min(ROWS, COLS); i++) {
+            if (grelha[i][i] != piece) {
+                leftToRight = false;
+            }
+            if (grelha[i][COLS - i - 1] != piece) {
+                rightToLeft = false;
+            }
+        }
+        return leftToRight || rightToLeft;
+    }
+
+    //Reinicia o jogo
     public void reiniciarJogo() {
-        board.getChildren().clear();
         for (int i = 0; i < ROWS; i++) {
             for (int j = 0; j < COLS; j++) {
                 grelha[i][j] = Piece.VAZIO;
+                Shape piece = getFormaNoTabuleiro(i, j);
+                if (piece != null) {
+                    board.getChildren().remove(piece);
+                }
                 Rectangle square = new Rectangle(TAMANHO_PECAS, TAMANHO_PECAS);
                 square.setFill(Color.WHITE);
                 square.setStroke(Color.BLACK);
@@ -285,6 +302,24 @@ public class SemaforoController {
         pecasAmarela = 8;
         pecasVermelhas = 8;
         atualizarContagemPecas();
-        AtualizarVez();
+    }
+
+    // Mostrar as regras do jogo
+    @FXML
+    private void mostrarRegras() {
+        String regras = "Regras do Jogo Semáforo:\n\n" +
+                "1. O tabuleiro tem 3 linhas e 4 colunas.\n" +
+                "2. Cada jogador começa com 8 peças verdes, 8 amarelas e 8 vermelhas.\n" +
+                "3. Clique em um espaço vazio para colocar uma peça verde.\n" +
+                "4. Clique em uma peça verde para substituí-la por uma peça amarela.\n" +
+                "5. Clique em uma peça amarela para substituí-la por uma peça vermelha.\n" +
+                "6. Peças vermelhas não podem ser substituídas.\n" +
+                "7. Vence o jogador que alinhar 4 peças da mesma cor em uma linha, coluna ou diagonal.";
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Regras do Jogo");
+        alert.setHeaderText(null);
+        alert.setContentText(regras);
+        alert.showAndWait();
     }
 }
